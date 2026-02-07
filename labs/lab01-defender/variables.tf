@@ -11,7 +11,7 @@ variable "alert_email" {
 variable "location" {
   description = "The Azure region to deploy resources in."
   type        = string
-  default     = "denmarkeast"
+  default     = "norwayeast"
 }
 
 variable "vm_count" {

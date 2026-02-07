@@ -109,7 +109,7 @@ resource "azurerm_linux_virtual_machine" "lab01_vm" {
     name                = "vm-lab01-${count.index + 1}"
     location            = var.location
     resource_group_name = data.azurerm_resource_group.labs.name
-    size                = "Standard_B1s"  #cheapest
+    size                = "Standard_B2ats_v2"
     admin_username      = var.admin_username
     tags                = local.common_tags
 
