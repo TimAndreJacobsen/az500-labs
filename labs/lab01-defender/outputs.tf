@@ -10,18 +10,18 @@ output "vm_names" {
 
 output "vm_public_ips" {
     description = "VM public IPs"
-    value = azurerm_public_ip.lab01_public_ip[*].name
+    value = azurerm_public_ip.lab01_public_ip[*].ip_address
 }
 
 output "vm_private_ips" {
   description = "VM private IPs"
-  value = azurerm_network_interface.lab01_nic[*].private_ip_address_allocation
+  value = azurerm_network_interface.lab01_nic[*].private_ip_address
 }
 
 output "ssh_commands" {
   description = "SSH commands to connect to VMs"
   value = [
-    for i, ip in azurerm_public_ip.lab01[*].ip_address :
+    for i, ip in azurerm_public_ip.lab01_public_ip[*].ip_address :
     "ssh ${var.admin_username}@${ip}"
   ]
 } 

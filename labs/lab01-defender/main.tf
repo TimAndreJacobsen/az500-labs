@@ -36,29 +36,42 @@ resource "azurerm_network_security_group" "lab01_nsg" {
     tags                = local.common_tags
 
     # public SSH access
-    security_rule = {
-        name                        = "AllowSSH"
-        priority                    = 100
-        direction                   = "Inbound"
-        access                      = "Allow"
-        protocol                    = "Tcp"
-        destination_port_range      = "22"
-        source_port_range           = "*"
-        source_address_prefix       = "*"
-        destination_address_prefix  = "*"
-    }
-
-    # Allow Outbound
-    security_rule {
-        name                        = "AllowInternetOutbound"
-        priority                    = 100
-        direction                   = "Outbound"
-        access                      = "Allow"
-        protocol                    = "*"
-        source_port_range           = "*"
-        source_address_prefix       = "*"
-        destination_address_prefix  = "*"
-    }
+    security_rule = [{
+        name                                       = "AllowSSH"
+        priority                                   = 100
+        direction                                  = "Inbound"
+        access                                     = "Allow"
+        protocol                                   = "Tcp"
+        destination_port_range                     = "22"
+        destination_port_ranges                    = []
+        source_port_range                          = "*"
+        source_port_ranges                         = []
+        source_address_prefix                      = "*"
+        source_address_prefixes                    = []
+        destination_address_prefix                 = "*"
+        destination_address_prefixes               = []
+        source_application_security_group_ids      = []
+        destination_application_security_group_ids = []
+        description                                = "Allow SSH inbound"
+    },
+    {
+        name                                       = "AllowInternetOutbound"
+        priority                                   = 100
+        direction                                  = "Outbound"
+        access                                     = "Allow"
+        protocol                                   = "*"
+        destination_port_range                     = "*"
+        destination_port_ranges                    = []
+        source_port_range                          = "*"
+        source_port_ranges                         = []
+        source_address_prefix                      = "*"
+        source_address_prefixes                    = []
+        destination_address_prefix                 = "Internet"
+        destination_address_prefixes               = []
+        source_application_security_group_ids      = []
+        destination_application_security_group_ids = []
+        description                                = "Allow outbound internet"
+    }]
 }
 
 resource "azurerm_subnet_network_security_group_association" "lab01_nsg_association" {
@@ -106,7 +119,7 @@ resource "azurerm_linux_virtual_machine" "lab01_vm" {
 
     admin_ssh_key {
       username = var.admin_username
-      public_key = file("~/.ssh/id_rsa.pub") # Check if this is safe and best practice before running or doing anything
+      public_key = file(pathexpand("~/.ssh/az500_lab.pub"))
     }
 
     os_disk {
