@@ -17,7 +17,7 @@ data "azurerm_resource_group" "labs" {
 resource "azurerm_virtual_network" "lab01_vnet" {
     name                = "vnet-lab01-defender"
     address_space       = ["10.1.0.0/16"]
-    location            = data.azurerm_resource_group.labs.location
+    location            = var.location
     resource_group_name = data.azurerm_resource_group.labs.name
     tags                = local.common_tags
 }
@@ -31,7 +31,7 @@ resource "azurerm_subnet" "lab01_subnet" {
 
 resource "azurerm_network_security_group" "lab01_nsg" {
     name                = "nsg-lab01-vms"
-    location            = data.azurerm_resource_group.labs.location
+    location            = var.location
     resource_group_name = data.azurerm_resource_group.labs.name
     tags                = local.common_tags
 
@@ -82,7 +82,7 @@ resource "azurerm_subnet_network_security_group_association" "lab01_nsg_associat
 resource "azurerm_public_ip" "lab01_public_ip" {
     count               = var.vm_count
     name                = "pip-lab01-vm-${count.index + 1}"
-    location            = data.azurerm_resource_group.labs.location
+    location            = var.location
     resource_group_name = data.azurerm_resource_group.labs.name
     allocation_method   = "Static"
     sku                 = "Standard"
@@ -92,7 +92,7 @@ resource "azurerm_public_ip" "lab01_public_ip" {
 resource "azurerm_network_interface" "lab01_nic" {
     count               = var.vm_count
     name                = "nic-lab01-vm-${count.index + 1}"
-    location            = data.azurerm_resource_group.labs.location
+    location            = var.location
     resource_group_name = data.azurerm_resource_group.labs.name
     tags                = local.common_tags
 
@@ -107,7 +107,7 @@ resource "azurerm_network_interface" "lab01_nic" {
 resource "azurerm_linux_virtual_machine" "lab01_vm" {
     count               = var.vm_count
     name                = "vm-lab01-${count.index + 1}"
-    location            = data.azurerm_resource_group.labs.location
+    location            = var.location
     resource_group_name = data.azurerm_resource_group.labs.name
     size                = "Standard_B1s"  #cheapest
     admin_username      = var.admin_username
@@ -147,7 +147,7 @@ resource "azurerm_dev_test_global_vm_shutdown_schedule" "lab01_shutdown" {
     daily_recurrence_time = var.shutdown_time
     timezone              = var.timezone
 
-    location              = data.azurerm_resource_group.labs.location
+    location              = var.location
     tags                  = local.common_tags
 
     notification_settings {
