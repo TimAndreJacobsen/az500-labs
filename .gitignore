@@ -1,0 +1,15 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform.lock.hcl
+
+# Secrets
+*.pem
+*.key
+secrets/
+
+# IDE
+.idea/
+.vscode/
