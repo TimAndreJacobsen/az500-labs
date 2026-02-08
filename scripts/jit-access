@@ -1,0 +1,16 @@
+# JIT is unfortunately not possible to enable via terraform at this point
+# It must be done as clickops in portal. Requires defender for servers plan 2 
+
+# Get your public IP
+MY_IP=$(curl -s ifconfig.me)
+
+# Request 3-hour access
+az vm jit-access request-access \
+  -g rg-az500-labs \
+  -n vm-lab01-1 \
+  --port 22 \
+  --source-ip-address $MY_IP \
+  --duration PT3H
+
+# Connect
+ssh -i ~/.ssh/az500_lab azureuser@20.100.175.189

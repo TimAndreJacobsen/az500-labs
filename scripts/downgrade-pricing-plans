@@ -1,0 +1,5 @@
+# run terraform destroy for labs and budget
+
+# run these to downgrade plans
+az security pricing create -n VirtualMachines --tier Free  # Downgrade to free tier
+az security pricing create -n CloudPosture --tier Free

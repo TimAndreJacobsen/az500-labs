@@ -36,24 +36,7 @@ resource "azurerm_network_security_group" "lab01_nsg" {
     tags                = local.common_tags
 
     # public SSH access
-    security_rule = [{
-        name                                       = "AllowSSH"
-        priority                                   = 100
-        direction                                  = "Inbound"
-        access                                     = "Allow"
-        protocol                                   = "Tcp"
-        destination_port_range                     = "22"
-        destination_port_ranges                    = []
-        source_port_range                          = "*"
-        source_port_ranges                         = []
-        source_address_prefix                      = "*"
-        source_address_prefixes                    = []
-        destination_address_prefix                 = "*"
-        destination_address_prefixes               = []
-        source_application_security_group_ids      = []
-        destination_application_security_group_ids = []
-        description                                = "Allow SSH inbound"
-    },
+    security_rule = [
     {
         name                                       = "AllowInternetOutbound"
         priority                                   = 100
