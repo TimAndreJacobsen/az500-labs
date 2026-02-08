@@ -1,49 +1,43 @@
-resource "azurerm_automation_account" "lab01_updates" {
-  name                = "aa-lab01-updates"
-  location            = var.location
-  resource_group_name = data.azurerm_resource_group.labs.name
-  sku_name            = "Basic"
-  tags                = local.common_tags
-}
+resource "azurerm_maintenance_configuration" "lab01_patches" {
+  name                     = "mc-lab01-weekly-patches"
+  location                 = var.location
+  resource_group_name      = data.azurerm_resource_group.labs.name
+  scope                    = "InGuestPatch"
+  tags                     = local.common_tags
 
-resource "azurerm_log_analytics_workspace" "lab01_logs" {
-  name                = "law-lab01-updates"
-  location            = var.location
-  resource_group_name = data.azurerm_resource_group.labs.name
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
-  tags                = local.common_tags
-}
+  in_guest_user_patch_mode = "User"
 
-resource "azurerm_log_analytics_solution" "updates" {
-  solution_name         = "Updates"
-  location              = var.location
-  resource_group_name   = data.azurerm_resource_group.labs.name
-  workspace_resource_id = azurerm_log_analytics_workspace.lab01_logs.id
-  workspace_name        = azurerm_log_analytics_workspace.lab01_logs.name
+  window {
+    start_date_time = "2026-02-15 02:00"
+    expiration_date_time = "2027-02-15 02:00"
+    time_zone       = "W. Europe Standard Time"
+    duration        = "02:00"
+    recur_every     = "1Week Sunday"
+  }
 
-  plan {
-    publisher = "Microsoft"
-    product   = "OMSGallery/Updates"
+  install_patches {
+    reboot = "IfRequired"
+
+    linux {
+      classifications_to_include = ["Critical", "Security", "Other"]
+    }
   }
 }
 
-resource "azurerm_virtual_machine_extension" "log_analytics_agent" {
+resource "azurerm_maintenance_assignment_virtual_machine" "lab01_patch_assignment" {
+  count                        = var.vm_count
+  location                     = var.location
+  maintenance_configuration_id = azurerm_maintenance_configuration.lab01_patches.id
+  virtual_machine_id           = azurerm_linux_virtual_machine.lab01_vm[count.index].id
+}
+
+resource "azurerm_virtual_machine_extension" "patch_assessment" {
   count                      = var.vm_count
-  name                       = "OMSAgentForLinux"
+  name                       = "AzurePatchAssessment"
   virtual_machine_id         = azurerm_linux_virtual_machine.lab01_vm[count.index].id
-  publisher                  = "Microsoft.EnterpriseCloud.Monitoring"
-  type                       = "OmsAgentForLinux"
-  type_handler_version       = "1.14"
+  publisher                  = "Microsoft.CPlat.Core"
+  type                       = "LinuxPatchExtension"
+  type_handler_version       = "1.5"
   auto_upgrade_minor_version = true
-
-  settings = jsonencode({
-    workspaceId = azurerm_log_analytics_workspace.lab01_logs.workspace_id
-  })
-
-  protected_settings = jsonencode({
-    workspaceKey = azurerm_log_analytics_workspace.lab01_logs.primary_shared_key
-  })
-
-  tags = local.common_tags
+  tags                       = local.common_tags
 }
