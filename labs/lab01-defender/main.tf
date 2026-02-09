@@ -14,6 +14,55 @@ data "azurerm_resource_group" "labs" {
     name = local.resource_group_name
 }
 
+resource "azurerm_key_vault" "lab01_kv" {
+    name                        = "kv-lab01-${substr(data.azurerm_client_config.current.subscription_id, 0, 8)}"
+    location                    = var.location
+    resource_group_name         = data.azurerm_resource_group.labs.name
+    tenant_id                   = data.azurerm_client_config.current.tenant_id
+    sku_name                    = "standard"
+    enabled_for_disk_encryption = true
+    rbac_authorization_enabled  = true
+    purge_protection_enabled    = true
+    soft_delete_retention_days  = 7
+    tags                        = local.common_tags
+}
+
+# RBAC: Grant current user Key Vault Crypto Officer (manage keys)
+resource "azurerm_role_assignment" "kv_crypto_officer" {
+    scope                = azurerm_key_vault.lab01_kv.id
+    role_definition_name = "Key Vault Crypto Officer"
+    principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# Add disk encryption key
+resource "azurerm_key_vault_key" "lab01_disk_key" {
+    name         = "disk-encryption-key"
+    key_vault_id = azurerm_key_vault.lab01_kv.id
+    key_type     = "RSA"
+    key_size     = 2048
+    key_opts     = ["decrypt", "encrypt", "sign", "unwrapKey", "verify", "wrapKey"]
+}
+
+# DES - use the key
+resource "azurerm_disk_encryption_set" "lab01_des" {
+    name                = "des-lab01-vms"
+    location            = var.location
+    resource_group_name = data.azurerm_resource_group.labs.name
+    key_vault_key_id    = azurerm_key_vault_key.lab01_disk_key.id
+    tags                = local.common_tags
+
+    identity {
+        type = "SystemAssigned"
+    }
+}
+
+# RBAC: Grant Disk Encryption Set access to Key Vault keys
+resource "azurerm_role_assignment" "des_kv_crypto_user" {
+    scope                = azurerm_key_vault.lab01_kv.id
+    role_definition_name = "Key Vault Crypto Service Encryption User"
+    principal_id         = azurerm_disk_encryption_set.lab01_des.identity[0].principal_id
+}
+
 resource "azurerm_virtual_network" "lab01_vnet" {
     name                = "vnet-lab01-defender"
     address_space       = ["10.1.0.0/16"]
@@ -35,13 +84,16 @@ resource "azurerm_network_security_group" "lab01_nsg" {
     resource_group_name = data.azurerm_resource_group.labs.name
     tags                = local.common_tags
 
-    # public SSH access
+    # ─── Inbound Rules ────────────────────────────────────────────────
+    # SSH is managed by JIT (no permanent allow rule)
+    # Deny all other inbound by default (implicit, but explicit is better)
+
     security_rule = [
     {
-        name                                       = "AllowInternetOutbound"
-        priority                                   = 100
-        direction                                  = "Outbound"
-        access                                     = "Allow"
+        name                                       = "DenyAllInbound"
+        priority                                   = 4096
+        direction                                  = "Inbound"
+        access                                     = "Deny"
         protocol                                   = "*"
         destination_port_range                     = "*"
         destination_port_ranges                    = []
@@ -49,11 +101,84 @@ resource "azurerm_network_security_group" "lab01_nsg" {
         source_port_ranges                         = []
         source_address_prefix                      = "*"
         source_address_prefixes                    = []
+        destination_address_prefix                 = "*"
+        destination_address_prefixes               = []
+        source_application_security_group_ids      = []
+        destination_application_security_group_ids = []
+        description                                = "Deny all inbound traffic - SSH managed by JIT"
+    },
+    # ─── Outbound Rules ───────────────────────────────────────────────
+    {
+        name                                       = "AllowHTTPSOutbound"
+        priority                                   = 100
+        direction                                  = "Outbound"
+        access                                     = "Allow"
+        protocol                                   = "Tcp"
+        destination_port_range                     = "443"
+        destination_port_ranges                    = []
+        source_port_range                          = "*"
+        source_port_ranges                         = []
+        source_address_prefix                      = "VirtualNetwork"
+        source_address_prefixes                    = []
         destination_address_prefix                 = "Internet"
         destination_address_prefixes               = []
         source_application_security_group_ids      = []
         destination_application_security_group_ids = []
-        description                                = "Allow outbound internet"
+        description                                = "Allow HTTPS outbound for updates and Azure services"
+    },
+    {
+        name                                       = "AllowHTTPOutbound"
+        priority                                   = 110
+        direction                                  = "Outbound"
+        access                                     = "Allow"
+        protocol                                   = "Tcp"
+        destination_port_range                     = "80"
+        destination_port_ranges                    = []
+        source_port_range                          = "*"
+        source_port_ranges                         = []
+        source_address_prefix                      = "VirtualNetwork"
+        source_address_prefixes                    = []
+        destination_address_prefix                 = "Internet"
+        destination_address_prefixes               = []
+        source_application_security_group_ids      = []
+        destination_application_security_group_ids = []
+        description                                = "Allow HTTP outbound for package repos"
+    },
+    {
+        name                                       = "AllowDNSOutbound"
+        priority                                   = 120
+        direction                                  = "Outbound"
+        access                                     = "Allow"
+        protocol                                   = "*"
+        destination_port_range                     = "53"
+        destination_port_ranges                    = []
+        source_port_range                          = "*"
+        source_port_ranges                         = []
+        source_address_prefix                      = "VirtualNetwork"
+        source_address_prefixes                    = []
+        destination_address_prefix                 = "Internet"
+        destination_address_prefixes               = []
+        source_application_security_group_ids      = []
+        destination_application_security_group_ids = []
+        description                                = "Allow DNS resolution"
+    },
+    {
+        name                                       = "DenyAllOutbound"
+        priority                                   = 4096
+        direction                                  = "Outbound"
+        access                                     = "Deny"
+        protocol                                   = "*"
+        destination_port_range                     = "*"
+        destination_port_ranges                    = []
+        source_port_range                          = "*"
+        source_port_ranges                         = []
+        source_address_prefix                      = "*"
+        source_address_prefixes                    = []
+        destination_address_prefix                 = "*"
+        destination_address_prefixes               = []
+        source_application_security_group_ids      = []
+        destination_application_security_group_ids = []
+        description                                = "Deny all other outbound traffic"
     }]
 }
 
@@ -106,9 +231,10 @@ resource "azurerm_linux_virtual_machine" "lab01_vm" {
     }
 
     os_disk {
-      name              = "osdisk-lab01-vm${count.index + 1}"
-      caching           = "ReadWrite"
-      storage_account_type = "Standard_LRS"
+      name                   = "osdisk-lab01-vm${count.index + 1}"
+      caching                = "ReadWrite"
+      storage_account_type   = "Standard_LRS"
+      disk_encryption_set_id = azurerm_disk_encryption_set.lab01_des.id
     }
 
     source_image_reference {
